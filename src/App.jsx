@@ -1,149 +1,135 @@
-import React, { useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import MarkerClusterGroup from "react-leaflet-cluster";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import AMapLoader from "@amap/amap-jsapi-loader";
 
 /**
- * stores.js 可以先长这样：
- * export const stores = [...]
- * 为了方便你直接预览，我先把数据写在同一个文件里。
+ * 你需要先安装：
+ * npm install @amap/amap-jsapi-loader
+ *
+ * 如果之前装过 Leaflet，可以卸载：
+ * npm uninstall leaflet react-leaflet react-leaflet-cluster
  */
+
+// =========================
+// 1. 填你的高德地图配置
+// =========================
+const AMAP_KEY = "3c8de71501c9252586f5ab220d9fddbb";
+const AMAP_SECURITY_CODE = "243808539cc1da2d4ff9459b5ca9f64b";
+
+// 高德新版 JS API 安全密钥配置
+window._AMapSecurityConfig = {
+  securityJsCode: AMAP_SECURITY_CODE,
+};
+
+// =========================
+// 2. 店铺数据 stores.js 先写在这里
+// 注意：高德地图坐标顺序是 lng, lat，也就是经度在前，纬度在后
+// =========================
 const stores = [
   {
     id: 1,
-    city: "东京",
-    name: "一兰拉面 涩谷店",
-    category: "拉面",
-    rating: 4.4,
-    comment: "汤底浓郁，游客很多，但第一次来东京吃很有仪式感。",
-    address: "日本东京都涩谷区神南1丁目22-7",
-    lat: 35.6604,
-    lng: 139.7005,
+    city: "上海",
+    name: "% Arabica 武康路店",
+    category: "咖啡",
+    rating: 4.7,
+    comment: "韩系感很强，适合散步的时候买一杯，拍照也很好看。",
+    address: "上海市徐汇区武康路",
+    lng: 121.4381,
+    lat: 31.2124,
     image:
-      "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=900&q=80",
-    visitDate: "2026-04-12",
+      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=900&q=80",
   },
   {
     id: 2,
-    city: "东京",
-    name: "Blue Bottle Coffee 清澄白河",
-    category: "咖啡",
+    city: "上海",
+    name: "安福路 Brunch 小店",
+    category: "Brunch",
     rating: 4.6,
-    comment: "空间很舒服，适合散步后坐一会儿，咖啡稳定不踩雷。",
-    address: "日本东京都江东区平野1丁目4-8",
-    lat: 35.6812,
-    lng: 139.7991,
+    comment: "氛围很舒服，适合周末慢慢吃，整体比较精致。",
+    address: "上海市徐汇区安福路",
+    lng: 121.4455,
+    lat: 31.2151,
     image:
-      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=900&q=80",
-    visitDate: "2026-03-28",
+      "https://images.unsplash.com/photo-1551218808-94e220e084d2?auto=format&fit=crop&w=900&q=80",
   },
   {
     id: 3,
-    city: "东京",
-    name: "Tsukiji Sushi Spot",
-    category: "寿司",
-    rating: 4.8,
-    comment: "鱼很新鲜，早上去体验最好，价格略高但值得。",
-    address: "日本东京都中央区筑地4丁目",
-    lat: 35.6655,
-    lng: 139.7707,
+    city: "北京",
+    name: "三里屯甜品店",
+    category: "甜品",
+    rating: 4.5,
+    comment: "甜品颜值高，适合和朋友聊天拍照。",
+    address: "北京市朝阳区三里屯",
+    lng: 116.4541,
+    lat: 39.9336,
     image:
-      "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=900&q=80",
-    visitDate: "2026-02-18",
+      "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=900&q=80",
   },
   {
     id: 4,
-    city: "大阪",
-    name: "道顿堀章鱼烧",
-    category: "小吃",
-    rating: 4.3,
-    comment: "热乎乎很好吃，外面软糯，适合边逛边吃。",
-    address: "日本大阪府大阪市中央区道顿堀",
-    lat: 34.6687,
-    lng: 135.5012,
+    city: "杭州",
+    name: "西湖边茶馆",
+    category: "茶馆",
+    rating: 4.8,
+    comment: "风景很好，适合下午坐着发呆，体验感很松弛。",
+    address: "杭州市西湖区西湖景区附近",
+    lng: 120.1452,
+    lat: 30.2491,
     image:
-      "https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?auto=format&fit=crop&w=900&q=80",
-    visitDate: "2026-01-10",
+      "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=900&q=80",
   },
   {
     id: 5,
-    city: "大阪",
-    name: "心斋桥烤肉店",
-    category: "烤肉",
+    city: "成都",
+    name: "太古里火锅店",
+    category: "火锅",
     rating: 4.7,
-    comment: "肉质不错，适合朋友聚餐，建议提前预约。",
-    address: "日本大阪府大阪市中央区心斋桥筋",
-    lat: 34.6721,
-    lng: 135.5015,
+    comment: "味道很香，适合晚上去，热闹又有氛围。",
+    address: "成都市锦江区太古里附近",
+    lng: 104.0809,
+    lat: 30.6543,
     image:
       "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80",
-    visitDate: "2026-01-11",
-  },
-  {
-    id: 6,
-    city: "京都",
-    name: "祇园抹茶甜品店",
-    category: "甜品",
-    rating: 4.5,
-    comment: "抹茶味很浓，环境安静，适合逛完祇园休息。",
-    address: "日本京都府京都市东山区祇园町",
-    lat: 35.0037,
-    lng: 135.7788,
-    image:
-      "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=900&q=80",
-    visitDate: "2025-12-20",
   },
 ];
 
+// =========================
+// 3. 城市信息
+// =========================
 const cityMeta = {
-  东京: {
-    center: [35.6762, 139.6503],
+  上海: {
+    center: [121.4737, 31.2304],
     zoom: 12,
     cover:
-      "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=1200&q=80",
-    description: "拉面、咖啡、寿司和各种小店都很多。",
+      "https://images.unsplash.com/photo-1538428494232-9c0d8a3ab403?auto=format&fit=crop&w=1200&q=80",
+    emoji: "🍓",
   },
-  大阪: {
-    center: [34.6937, 135.5023],
-    zoom: 13,
+  北京: {
+    center: [116.4074, 39.9042],
+    zoom: 11,
     cover:
-      "https://images.unsplash.com/photo-1590559899731-a382839e5549?auto=format&fit=crop&w=1200&q=80",
-    description: "适合吃小吃、烤肉和热闹的街边店。",
+      "https://images.unsplash.com/photo-1599571234909-29ed5d1321d6?auto=format&fit=crop&w=1200&q=80",
+    emoji: "🍰",
   },
-  京都: {
-    center: [35.0116, 135.7681],
-    zoom: 13,
+  杭州: {
+    center: [120.1551, 30.2741],
+    zoom: 12,
     cover:
-      "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1200&q=80",
-    description: "适合慢慢走、喝茶、吃甜品。",
+      "https://images.unsplash.com/photo-1599376792011-0a7f1d8b6c9f?auto=format&fit=crop&w=1200&q=80",
+    emoji: "🍵",
+  },
+  成都: {
+    center: [104.0665, 30.5728],
+    zoom: 12,
+    cover:
+      "https://images.unsplash.com/photo-1541696490-8744a5dc0228?auto=format&fit=crop&w=1200&q=80",
+    emoji: "🌶️",
   },
 };
 
-const markerIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-function getGoogleMapsUrl(store) {
-  return `https://www.google.com/maps/search/?api=1&query=${store.lat},${store.lng}`;
-}
-
-function CityFitBounds({ cityStores }) {
-  const map = useMap();
-
-  React.useEffect(() => {
-    if (!cityStores.length) return;
-    const bounds = L.latLngBounds(cityStores.map((store) => [store.lat, store.lng]));
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
-  }, [cityStores, map]);
-
-  return null;
+function getAmapNavigationUrl(store) {
+  return `https://uri.amap.com/marker?position=${store.lng},${store.lat}&name=${encodeURIComponent(
+    store.name
+  )}&src=food-map&coordinate=gaode&callnative=1`;
 }
 
 function HomePage({ cities, onSelectCity }) {
@@ -181,9 +167,10 @@ function HomePage({ cities, onSelectCity }) {
           </div>
         </div>
 
-        <div className="grid gap-7 md:grid-cols-3">
+        <div className="grid gap-7 md:grid-cols-4">
           {cities.map((city) => {
             const count = stores.filter((store) => store.city === city).length;
+            const meta = cityMeta[city];
 
             return (
               <button
@@ -191,22 +178,22 @@ function HomePage({ cities, onSelectCity }) {
                 onClick={() => onSelectCity(city)}
                 className="group relative overflow-hidden rounded-[36px] border-[6px] border-white bg-white text-left shadow-[0_18px_50px_rgba(208,139,113,0.2)] transition duration-500 hover:-translate-y-2 hover:rotate-1 hover:shadow-[0_24px_70px_rgba(208,139,113,0.3)]"
               >
-                <div className="relative h-[360px] overflow-hidden rounded-[28px]">
+                <div className="relative h-[300px] overflow-hidden rounded-[28px]">
                   <img
-                    src={cityMeta[city].cover}
+                    src={meta.cover}
                     alt={city}
                     className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#3f3028]/75 via-[#3f3028]/10 to-transparent" />
 
                   <div className="absolute left-5 top-5 rounded-full bg-white/90 px-4 py-2 text-sm font-black text-[#d66b54] shadow-md backdrop-blur">
-                    🧁 {count} 家
+                    {meta.emoji} {count} 家
                   </div>
                 </div>
 
                 <div className="p-6">
                   <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-4xl font-black tracking-tight text-[#3f3028]">{city}</h2>
+                    <h2 className="text-3xl font-black tracking-tight text-[#3f3028]">{city}</h2>
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#ffe8df] text-2xl transition group-hover:scale-110">
                       📍
                     </div>
@@ -229,29 +216,33 @@ function HomePage({ cities, onSelectCity }) {
   );
 }
 
-function StorePopup({ store }) {
+function StoreCard({ store }) {
   return (
-    <div className="w-64 overflow-hidden rounded-2xl bg-white">
-      <img src={store.image} alt={store.name} className="h-32 w-full object-cover" />
-      <div className="p-3">
+    <div className="w-[280px] overflow-hidden rounded-[24px] bg-white shadow-xl">
+      <img src={store.image} alt={store.name} className="h-36 w-full object-cover" />
+
+      <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-bold text-stone-900">{store.name}</h3>
-            <p className="mt-1 text-xs text-stone-500">{store.category}</p>
+            <h3 className="text-lg font-black text-[#3f3028]">{store.name}</h3>
+            <p className="mt-1 text-xs font-bold text-[#d66b54]">{store.category}</p>
           </div>
-          <span className="rounded-full bg-orange-100 px-2 py-1 text-xs font-bold text-orange-700">
+
+          <div className="rounded-full bg-[#ffe8df] px-3 py-1 text-sm font-black text-[#d66b54]">
             ★ {store.rating}
-          </span>
+          </div>
         </div>
-        <p className="mt-3 text-sm leading-5 text-stone-700">{store.comment}</p>
-        <p className="mt-3 text-xs leading-5 text-stone-500">{store.address}</p>
+
+        <p className="mt-3 text-sm leading-6 text-[#7c675d]">{store.comment}</p>
+        <p className="mt-3 text-xs leading-5 text-[#9a857b]">{store.address}</p>
+
         <a
-          href={getGoogleMapsUrl(store)}
+          href={getAmapNavigationUrl(store)}
           target="_blank"
           rel="noreferrer"
-          className="mt-3 block rounded-xl bg-stone-900 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-stone-700"
+          className="mt-4 block rounded-full bg-[#3f3028] px-4 py-3 text-center text-sm font-black text-white transition hover:bg-[#d66b54]"
         >
-          打开 Google Maps 导航
+          打开高德地图导航
         </a>
       </div>
     </div>
@@ -259,104 +250,285 @@ function StorePopup({ store }) {
 }
 
 function CityMapPage({ city, onBack }) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const infoWindowRef = useRef(null);
+  const markersRef = useRef([]);
+  const clusterRef = useRef(null);
+
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [category, setCategory] = useState("全部");
-  const [minRating, setMinRating] = useState(0);
+  const [selectedStore, setSelectedStore] = useState(null);
 
   const cityStores = useMemo(() => stores.filter((store) => store.city === city), [city]);
-  const categories = useMemo(
-    () => ["全部", ...Array.from(new Set(cityStores.map((store) => store.category)))],
-    [cityStores]
-  );
 
-  const filteredStores = cityStores.filter((store) => {
-    const categoryMatched = category === "全部" || store.category === category;
-    const ratingMatched = store.rating >= Number(minRating);
-    return categoryMatched && ratingMatched;
-  });
+  const categories = useMemo(() => {
+    return ["全部", ...Array.from(new Set(cityStores.map((store) => store.category)))];
+  }, [cityStores]);
+
+  const filteredStores = useMemo(() => {
+    if (category === "全部") return cityStores;
+    return cityStores.filter((store) => store.category === category);
+  }, [cityStores, category]);
+
+  useEffect(() => {
+    let destroyed = false;
+
+    async function initMap() {
+      try {
+        const AMap = await AMapLoader.load({
+          key: AMAP_KEY,
+          version: "2.0",
+          plugins: ["AMap.Scale", "AMap.ToolBar", "AMap.MarkerCluster"],
+        });
+
+        if (destroyed || !mapRef.current) return;
+
+        const map = new AMap.Map(mapRef.current, {
+          viewMode: "2D",
+          resizeEnable: true,
+          zoom: cityMeta[city].zoom,
+          center: cityMeta[city].center,
+          mapStyle: "amap://styles/fresh",
+        });
+
+        map.addControl(new AMap.Scale());
+        map.addControl(
+          new AMap.ToolBar({
+            position: "RB",
+          })
+        );
+
+        mapInstanceRef.current = map;
+        infoWindowRef.current = new AMap.InfoWindow({
+          isCustom: true,
+          offset: new AMap.Pixel(0, -64),
+        });
+
+        setMapLoaded(true);
+      } catch (error) {
+        console.error(error);
+        setLoadError("高德地图加载失败，请检查 Key 和 securityJsCode 是否正确。");
+      }
+    }
+
+    initMap();
+
+    return () => {
+      destroyed = true;
+      if (clusterRef.current) {
+        clusterRef.current.setMap(null);
+        clusterRef.current = null;
+      }
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.destroy();
+        mapInstanceRef.current = null;
+      }
+      setMapLoaded(false);
+    };
+  }, [city]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !mapLoaded || !window.AMap) return;
+
+    const AMap = window.AMap;
+
+    if (clusterRef.current) {
+      clusterRef.current.setMap(null);
+      clusterRef.current = null;
+    }
+
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current = [];
+
+    const markers = filteredStores.map((store) => {
+      const marker = new AMap.Marker({
+        position: [store.lng, store.lat],
+        title: store.name,
+        content: `
+        <div style="
+          position: relative;
+          width: 72px;
+          height: 72px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #fff 0%, #ffe8df 100%);
+          border: 6px solid #ffffff;
+          box-shadow: 0 14px 36px rgba(92, 55, 40, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 34px;
+        ">
+          <div style="
+            position: absolute;
+            inset: -10px;
+            border-radius: 999px;
+            background: rgba(214, 107, 84, 0.18);
+            z-index: -1;
+          "></div>
+          📍
+        </div>
+        `,
+        offset: new AMap.Pixel(-36, -72),
+      });
+
+      marker.on("click", () => {
+        setSelectedStore(store);
+        const content = document.createElement("div");
+        content.innerHTML = `
+          <div style="
+            width: 280px;
+            overflow: hidden;
+            border-radius: 24px;
+            background: white;
+            box-shadow: 0 20px 50px rgba(60, 40, 30, 0.25);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          ">
+            <img src="${store.image}" style="width: 100%; height: 140px; object-fit: cover;" />
+            <div style="padding: 16px;">
+              <div style="display: flex; justify-content: space-between; gap: 12px; align-items: flex-start;">
+                <div>
+                  <div style="font-size: 18px; font-weight: 900; color: #3f3028;">${store.name}</div>
+                  <div style="margin-top: 4px; font-size: 12px; font-weight: 800; color: #d66b54;">${store.category}</div>
+                </div>
+                <div style="border-radius: 999px; background: #ffe8df; color: #d66b54; padding: 4px 10px; font-size: 13px; font-weight: 900; white-space: nowrap;">★ ${store.rating}</div>
+              </div>
+              <div style="margin-top: 12px; font-size: 14px; line-height: 1.7; color: #7c675d;">${store.comment}</div>
+              <div style="margin-top: 10px; font-size: 12px; line-height: 1.6; color: #9a857b;">${store.address}</div>
+              <a href="${getAmapNavigationUrl(store)}" target="_blank" style="
+                display: block;
+                margin-top: 14px;
+                border-radius: 999px;
+                background: #3f3028;
+                color: white;
+                padding: 12px 16px;
+                text-align: center;
+                font-size: 14px;
+                font-weight: 900;
+                text-decoration: none;
+              ">打开高德地图导航</a>
+            </div>
+          </div>
+        `;
+
+        infoWindowRef.current.setContent(content);
+        infoWindowRef.current.open(map, [store.lng, store.lat]);
+      });
+
+      return marker;
+    });
+
+    markersRef.current = markers;
+
+    if (markers.length > 0) {
+      clusterRef.current = new AMap.MarkerCluster(map, markers, {
+        gridSize: 90,
+        maxZoom: 16,
+        renderClusterMarker: (context) => {
+          const count = context.count;
+          context.marker.setContent(`
+            <div style="
+              position: relative;
+              width: 88px;
+              height: 88px;
+              border-radius: 999px;
+              background: linear-gradient(135deg, #3f3028 0%, #d66b54 100%);
+              border: 8px solid #ffd2c2;
+              color: white;
+              box-shadow: 0 18px 44px rgba(92, 55, 40, 0.42);
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              font-size: 20px;
+              font-weight: 900;
+              line-height: 1.05;
+            ">
+              <div style="
+                position: absolute;
+                inset: -14px;
+                border-radius: 999px;
+                background: rgba(214, 107, 84, 0.18);
+                z-index: -1;
+              "></div>
+              <div>${count}</div>
+              <div style="font-size: 12px; margin-top: 4px;">家店</div>
+            </div>
+          `);
+          context.marker.setOffset(new AMap.Pixel(-44, -44));
+        },
+      });
+
+      map.setFitView(markers, false, [80, 80, 80, 80], 15);
+    }
+  }, [filteredStores, mapLoaded]);
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-stone-900">
-      <MapContainer
-        center={cityMeta[city].center}
-        zoom={cityMeta[city].zoom}
-        scrollWheelZoom
-        className="h-full w-full"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+    <div className="relative h-screen w-screen overflow-hidden bg-[#fff7f1]">
+      <div ref={mapRef} className="h-full w-full" />
 
-        <CityFitBounds cityStores={filteredStores} />
+      {loadError && (
+        <div className="absolute inset-0 z-[2000] flex items-center justify-center bg-[#fff7f1] p-6">
+          <div className="max-w-md rounded-[28px] bg-white p-6 text-center shadow-xl">
+            <div className="text-4xl">🥲</div>
+            <h2 className="mt-3 text-2xl font-black text-[#3f3028]">地图加载失败</h2>
+            <p className="mt-3 text-sm leading-6 text-[#7c675d]">{loadError}</p>
+          </div>
+        </div>
+      )}
 
-        <MarkerClusterGroup chunkedLoading>
-          {filteredStores.map((store) => (
-            <Marker key={store.id} position={[store.lat, store.lng]} icon={markerIcon}>
-              <Popup closeButton={false} className="food-popup">
-                <StorePopup store={store} />
-              </Popup>
-            </Marker>
-          ))}
-        </MarkerClusterGroup>
-      </MapContainer>
-
-      <div className="pointer-events-none absolute left-4 right-4 top-4 z-[1000] flex flex-col gap-3 md:left-6 md:right-auto md:w-[360px]">
-        <div className="pointer-events-auto rounded-3xl bg-white/95 p-4 shadow-xl backdrop-blur">
+      <div className="absolute left-4 right-4 top-4 z-[1000] md:left-6 md:right-auto md:w-[380px]">
+        <div className="rounded-[32px] border border-white/70 bg-white/85 p-5 shadow-[0_18px_50px_rgba(208,139,113,0.25)] backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3">
             <button
               onClick={onBack}
-              className="rounded-full bg-stone-100 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-200"
+              className="rounded-full bg-[#3f3028] px-4 py-2 text-sm font-black text-white transition hover:bg-[#d66b54]"
             >
               ← 返回
             </button>
-            <span className="rounded-full bg-orange-100 px-3 py-2 text-sm font-bold text-orange-700">
-              {filteredStores.length} 家店
-            </span>
-          </div>
-          <h1 className="mt-4 text-3xl font-bold text-stone-900">{city}探店地图</h1>
-          <p className="mt-2 text-sm leading-6 text-stone-600">
-            缩小时会自动聚合，放大后会展开成具体店铺。点击标记可以看图片、评分、评价和地址。
-          </p>
-        </div>
 
-        <div className="pointer-events-auto rounded-3xl bg-white/95 p-4 shadow-xl backdrop-blur">
-          <label className="text-xs font-bold uppercase tracking-wider text-stone-500">分类筛选</label>
-          <div className="mt-3 flex flex-wrap gap-2">
+            <div className="rounded-full bg-[#ffe8df] px-4 py-2 text-sm font-black text-[#d66b54]">
+              {filteredStores.length} 家店
+            </div>
+          </div>
+
+          <h1 className="mt-5 text-3xl font-black text-[#3f3028]">
+            {city}探店地图 ♡
+          </h1>
+
+          <p className="mt-2 text-sm leading-6 text-[#7c675d]">
+            缩小时自动聚合，放大后显示具体店铺。点击小标记可以查看评价和导航。
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
             {categories.map((item) => (
               <button
                 key={item}
                 onClick={() => setCategory(item)}
-                className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+                className={`rounded-full px-4 py-2 text-sm font-black transition ${
                   category === item
-                    ? "bg-stone-900 text-white"
-                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                    ? "bg-[#d66b54] text-white"
+                    : "bg-[#fff0e9] text-[#8b7469] hover:bg-[#ffe1d5]"
                 }`}
               >
                 {item}
               </button>
             ))}
           </div>
-
-          <div className="mt-4">
-            <label className="text-xs font-bold uppercase tracking-wider text-stone-500">
-              最低评分：{minRating === 0 ? "不限" : `${minRating} 分`}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="5"
-              step="0.5"
-              value={minRating}
-              onChange={(event) => setMinRating(event.target.value)}
-              className="mt-3 w-full accent-stone-900"
-            />
-          </div>
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-4 right-4 z-[1000] rounded-2xl bg-white/90 px-4 py-3 text-sm text-stone-600 shadow-lg backdrop-blur md:left-auto md:right-6 md:w-[360px]">
-        提示：以后你可以把“新增店铺”做成后台表单，数据存到 Supabase 或 Firebase。
-      </div>
+      {selectedStore && (
+        <div className="absolute bottom-4 left-4 right-4 z-[1000] md:left-auto md:right-6 md:w-[320px]">
+          <div className="rounded-[28px] border border-white/70 bg-white/90 p-4 shadow-[0_18px_50px_rgba(208,139,113,0.25)] backdrop-blur-xl">
+            <p className="text-xs font-black text-[#d66b54]">当前选中</p>
+            <h3 className="mt-1 text-xl font-black text-[#3f3028]">{selectedStore.name}</h3>
+            <p className="mt-2 text-sm leading-6 text-[#7c675d]">{selectedStore.comment}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
